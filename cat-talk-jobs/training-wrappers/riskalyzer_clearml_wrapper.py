@@ -295,15 +295,15 @@ if __name__ == '__main__':
         system_prompt = "You are a helpful assistant."
         user_prompt = "Extract sensitive content from this portion of a transcript. Sensitive content only includes racism, sexual content, defamation, libel, slander, and other types of content related to OTHER people. The person being interviewed is allowed to share personal information, and that content should not be flagged. List the line number, why the content is considered sensitive, and the excerpt of sensitive content. Do not say if part of the conversation appears to be missing, and do not output anything extra. Look at your conversation history and add on to the previous report if you think that the part of the transcript you are looking at is a continuation of that. Only output information in the required format. Say nothing else."
 
-        clearml_dataset_name = f'{args.project_id}_{args.file_id}_outputs'
-        # pull the file to verbatimize from s3 and cache local to DGX
-        clearml_dataset = Dataset.get(dataset_name=clearml_dataset_name, dataset_project=args.dataset_project)
-        dataset_cache_path = clearml_dataset.get_local_copy()
-
         print('Starting ClearML Task')
         task = Task.init(project_name=args.project_name, task_name=args.task_name)
         task_id = str(task.current_task().id)
         print('Task_id:', task_id)
+
+        clearml_dataset_name = f'{args.project_id}_{args.file_id}_outputs'
+        # pull the file to verbatimize from s3 and cache local to DGX
+        clearml_dataset = Dataset.get(dataset_name=clearml_dataset_name, dataset_project=args.dataset_project)
+        dataset_cache_path = clearml_dataset.get_local_copy()
 
 
         print('ENVS:')

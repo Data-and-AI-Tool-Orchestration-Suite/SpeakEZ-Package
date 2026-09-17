@@ -626,15 +626,15 @@ if __name__ == '__main__':
 
         args = parser.parse_args()
 
-        clearml_dataset_name = f'{args.project_id}_{args.file_id}_outputs'
-        # pull the file to verbatimize from s3 and cache local to DGX
-        clearml_dataset = Dataset.get(dataset_name=clearml_dataset_name, dataset_project=args.dataset_project)
-        dataset_cache_path = clearml_dataset.get_local_copy()
-
         print('Starting ClearML Task')
         task = Task.init(project_name=args.project_name, task_name=args.task_name, output_uri='s3://s3.ai.uky.edu:443/cat-talk')
         task_id = str(task.current_task().id)
         print('Task_id:', task_id)
+
+        clearml_dataset_name = f'{args.project_id}_{args.file_id}_outputs'
+        # pull the file to verbatimize from s3 and cache local to DGX
+        clearml_dataset = Dataset.get(dataset_name=clearml_dataset_name, dataset_project=args.dataset_project)
+        dataset_cache_path = clearml_dataset.get_local_copy()
 
 
         print('ENVS:')

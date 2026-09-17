@@ -130,8 +130,10 @@ docker compose exec app bash /workspace/create-templates/cat-talk-synchronifier.
 docker compose exec app bash /workspace/create-templates/cat-talk-custom.sh
 ```
 
-Each ends with an error about job "asdf" — **that is normal**; the template
-is saved before the error.
+Each ends with an error about a missing template dataset — **that is
+normal**. The template task itself is saved *before* that error, which is
+all the coordinator needs (it appears in the project even though it shows a
+failed/aborted status).
 
 ✔ **Checkpoint:** in the ClearML web UI, inside the `SpeakEZ` project, you
 see five tasks named `verbatimizer_template_v4`,
