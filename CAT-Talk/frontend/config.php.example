@@ -8,7 +8,7 @@
          * @param string    $pass Password for the DB
          * @param int       $port Port for the DB
          */
-        'postgres' => [
+        'db' => [
             'host'              => 'postgres', // Hostname of Postgres DB. 'postgres' refers to the Docker service name set in docker-compose.yml that this container can reach
             'name'              => '',         // Name of Postgres DB. Set in .env
             'user'              => '',         // Username for Postgres DB. Set in .env

@@ -1,3 +1,11 @@
+-- ============================================================
+-- SpeakEZ database initialization.
+-- Runs automatically on the FIRST start of the database container.
+-- The admin email (<ADMIN_EPPN>) is filled in automatically from
+-- the ADMIN_EPPN value in the .env file when the container is
+-- built — no editing needed here.
+-- ============================================================
+
 BEGIN;
 
 -- Create user roles table
@@ -6,7 +14,7 @@ CREATE TABLE IF NOT EXISTS user_roles(
     role_name VARCHAR(255) NOT NULL
 );
 
--- Create users for CiLogon table
+-- Create users table for CiLogon
 CREATE TABLE IF NOT EXISTS users(
     id VARCHAR(255) NOT NULL PRIMARY KEY,
     email VARCHAR(255),
@@ -17,9 +25,9 @@ CREATE TABLE IF NOT EXISTS users(
     idp VARCHAR(255),
     idp_name VARCHAR(255),
     affiliation VARCHAR(255),
-    roles INT[] DEFAULT ARRAY[0]
+    roles INT[] DEFAULT ARRAY[0],
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
-
 
 -- Create user_sessions table
 CREATE TABLE IF NOT EXISTS user_sessions(
@@ -30,39 +38,29 @@ CREATE TABLE IF NOT EXISTS user_sessions(
     CONSTRAINT user_sessions_users_id_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS files(
-    id CHAR(36) NOT NULL PRIMARY KEY,
-    collection_code VARCHAR(255) NOT NULL,
-    filename TEXT NOT NULL,
-    transcription_filename TEXT DEFAULT NULL,
-    izers JSON NOT NULL,
-    date_added TIMESTAMP NOT NULL DEFAULT NOW(),
-    archived JSON NOT NULL,
-    status JSON NOT NULL,
-    associated_project_id UUID
+-- Create users_accepted_agreement table
+CREATE TABLE IF NOT EXISTS users_accepted_agreement(
+    user_id VARCHAR(36) NOT NULL PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
-
 
 COMMIT;
 
 BEGIN;
 
+-- Insert predefined roles
 INSERT INTO user_roles (role_id, role_name) VALUES
     (0, 'Default'),
     (1, 'Admin'),
     (2, 'User'),
     (3, 'SpeakEZ_User')
 ON CONFLICT (role_id) DO NOTHING;
--- Add more roles here if necessary
 
-
--- Constraint for ensuring roles are valid
-CREATE OR REPLACE FUNCTION check_roles_validity() 
+-- Constraint to ensure roles are valid
+CREATE OR REPLACE FUNCTION check_roles_validity()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Check that every value in the roles array exists in user_roles
     IF EXISTS (
-        SELECT 1 FROM unnest(NEW.roles) AS role_id 
+        SELECT 1 FROM unnest(NEW.roles) AS role_id
         WHERE role_id NOT IN (SELECT role_id FROM user_roles)
     ) THEN
         RAISE EXCEPTION 'Invalid role_id in roles array';
@@ -71,79 +69,220 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER validate_roles
+CREATE OR REPLACE TRIGGER validate_roles
 BEFORE INSERT OR UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION check_roles_validity();
 
+COMMIT;
 
--- Create a trigger function to add collection_codes to projects when files are uploaded
-CREATE OR REPLACE FUNCTION update_collection_codes()
-RETURNS TRIGGER AS $$
+BEGIN;
+-- Insert initial Admin user (replace <ADMIN_EPPN> dynamically)
+INSERT INTO users (id, eppn, roles) VALUES
+    ('notloggedin_admin_user_id', '<ADMIN_EPPN>', ARRAY[(SELECT role_id FROM user_roles WHERE role_name = 'Admin')])
+ON CONFLICT (id) DO NOTHING;
+
+COMMIT;
+
+
+BEGIN;
+
+-- Create tenants table
+CREATE TABLE IF NOT EXISTS tenants(
+	id VARCHAR(36) PRIMARY KEY NOT NULL,
+	name TEXT NOT NULL,
+    can_self_manage BOOLEAN DEFAULT FALSE
+);
+
+-- Create tenant_roles table
+CREATE TABLE IF NOT EXISTS tenant_roles(
+    tenant_id VARCHAR(36) NOT NULL REFERENCES tenants(id)  ON UPDATE CASCADE ON DELETE CASCADE,
+	role_id INT NOT NULL,
+    role_name VARCHAR(255) NOT NULL,
+    PRIMARY KEY(tenant_id, role_id)
+);
+
+-- Create tenant_users table
+CREATE TABLE IF NOT EXISTS tenant_users(
+    tenant_id VARCHAR(36),
+    user_id VARCHAR(36) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    tenant_role INT NOT NULL,
+    UNIQUE(tenant_id, user_id, tenant_role),
+    PRIMARY KEY(tenant_id, user_id, tenant_role),
+    CONSTRAINT fk_tenant_role FOREIGN KEY (tenant_id, tenant_role)
+        REFERENCES tenant_roles(tenant_id, role_id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+-- Create table to track current tenant for each user
+CREATE TABLE IF NOT EXISTS users_current_tenants(
+    user_id VARCHAR(36) PRIMARY KEY REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    tenant_id VARCHAR(36) NOT NULL REFERENCES tenants(id)  ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE OR REPLACE FUNCTION enforce_tenant_entry()
+    RETURNS TRIGGER AS $$
 BEGIN
-    -- Check if the collection_code is not null
-    IF NEW.collection_code IS NOT NULL THEN
-        -- Update the collection_codes array in the associated project
-        UPDATE projects
-        SET collection_codes = array_append(collection_codes, NEW.collection_code)
-        WHERE id = NEW.associated_project_id
-          AND NOT (NEW.collection_code = ANY(collection_codes)); -- Avoid duplicates
+    -- Check if the combination exists in tenant_users
+    IF NOT EXISTS (
+        SELECT 1 FROM tenant_users
+        WHERE tenant_users.user_id = NEW.user_id
+          AND tenant_users.tenant_id = NEW.tenant_id
+    ) THEN
+        RAISE EXCEPTION 'Invalid entry: user_id and tenant_id must exist in tenant_users';
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER add_collection_code
-AFTER INSERT ON files
+CREATE OR REPLACE TRIGGER enforce_tenant_entry_trigger
+    BEFORE INSERT OR UPDATE ON users_current_tenants
+    FOR EACH ROW EXECUTE FUNCTION enforce_tenant_entry();
+
+
+-- Create trigger to set new current tenant if all roles removed from user's current tenant.
+-- If no tenants exist, throw an exception. The user should always have a tenant, or just
+-- delete the user.
+CREATE OR REPLACE FUNCTION update_or_delete_current_tenant()
+RETURNS TRIGGER AS $$
+DECLARE
+    new_tenant VARCHAR(36);
+BEGIN
+    -- Check if the deleted tenant was the user's current tenant
+    IF EXISTS (SELECT 1 FROM users_current_tenants WHERE user_id = OLD.user_id AND tenant_id = OLD.tenant_id) THEN
+        -- Check if the user still has other roles in the same tenant
+        IF EXISTS (SELECT 1 FROM tenant_users WHERE user_id = OLD.user_id AND tenant_id = OLD.tenant_id) THEN
+            -- User still has roles in the tenant, so do nothing
+            RETURN OLD;
+        END IF;
+        -- Find another tenant the user is associated with
+        SELECT tenant_id INTO new_tenant
+        FROM tenant_users
+        WHERE user_id = OLD.user_id
+        LIMIT 1;
+        -- If another tenant exists, update the current tenant
+        IF FOUND THEN
+            UPDATE users_current_tenants
+            SET tenant_id = new_tenant
+            WHERE user_id = OLD.user_id;
+        ELSE
+            -- If no other tenant exists, throw an error
+            RAISE EXCEPTION 'User % has no other tenants. Cannot delete last tenant.', OLD.user_id;
+        END IF;
+    END IF;
+
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+
+DROP TRIGGER IF EXISTS ensure_valid_current_tenant ON tenant_users;
+
+CREATE CONSTRAINT TRIGGER ensure_valid_current_tenant
+AFTER DELETE ON tenant_users
+DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW
-EXECUTE FUNCTION update_collection_codes();
+EXECUTE FUNCTION update_or_delete_current_tenant();
+
+-- Create trigger to set current tenant if not currently set
+CREATE OR REPLACE FUNCTION after_insert_tenant_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- If the user does not have a current tenant, set the newly inserted one
+    IF NOT EXISTS (SELECT 1 FROM users_current_tenants WHERE user_id = NEW.user_id) THEN
+        INSERT INTO users_current_tenants (user_id, tenant_id)
+        VALUES (NEW.user_id, NEW.tenant_id);
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER after_insert_tenant_user_trigger
+AFTER INSERT ON tenant_users
+FOR EACH ROW
+EXECUTE FUNCTION after_insert_tenant_user();
 
 
--- Insert initial user into the database as an Admin. The only thing you need to change is the <linkblue> part to your
--- linkblue (i.e. 'abc123')
-INSERT INTO users (id, eppn, roles) VALUES
-    ('notloggedin_123456', '<linkblue>@uky.edu', ARRAY[(SELECT role_id FROM user_roles WHERE role_name = 'Admin')]);
+-- Create tenant_styles table
+CREATE TABLE IF NOT EXISTS tenant_styles(
+	tenant_id VARCHAR(36) PRIMARY KEY REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE,
+	styles JSONB DEFAULT '{}'
+);
+
+-- Add the default tenant
+INSERT INTO tenants (id, name, can_self_manage)
+VALUES ('bad3c98b-e673-4547-bd3a-afe8f6fc5c68', 'University of Kentucky', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Add Admin role to the default tenant
+INSERT INTO tenant_roles (tenant_id, role_id, role_name)
+VALUES ('bad3c98b-e673-4547-bd3a-afe8f6fc5c68',
+	(SELECT COALESCE(MAX(role_id), -1)+1 as new_role_id
+	FROM tenant_roles
+	WHERE tenant_id = 'bad3c98b-e673-4547-bd3a-afe8f6fc5c68'),
+	'Admin');
+
+-- Add User role to the default tenant
+INSERT INTO tenant_roles (tenant_id, role_id, role_name)
+VALUES ('bad3c98b-e673-4547-bd3a-afe8f6fc5c68',
+	(SELECT COALESCE(MAX(role_id), -1)+1 as new_role_id
+	FROM tenant_roles
+	WHERE tenant_id = 'bad3c98b-e673-4547-bd3a-afe8f6fc5c68'),
+	'User');
+
+-- Add the ADMIN_EPPN user to the default tenant
+INSERT INTO tenant_users (tenant_id, user_id, tenant_role)
+VALUES ('bad3c98b-e673-4547-bd3a-afe8f6fc5c68', 'notloggedin_admin_user_id', 0)
+ON CONFLICT DO NOTHING;
+
+
+-- Function to set tenant_id to current session's tenant_id
+CREATE OR REPLACE FUNCTION set_tenant_id() RETURNS TRIGGER AS $$
+BEGIN
+    IF current_setting('site_session.tenant_id', true) IS NOT NULL THEN
+        NEW.tenant_id := current_setting('site_session.tenant_id')::VARCHAR(36);
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE VIEW users_tenant_view AS
+SELECT u.* FROM users u
+INNER JOIN tenant_users tu ON u.id = tu.user_id
+WHERE tu.tenant_id = current_setting('site_session.tenant_id')::VARCHAR(36)
+GROUP BY u.id;
+
+/*
+INSTRUCTIONS FOR OBJECTS WITH TENANT SCOPE
+
+These instructions are for objects that specifically exist on one tenant (i.e. Projects, API Keys)
+    1. Add a column in the table of form:
+        tenant_id VARCHAR(36) DEFAULT NULL REFERENCES tenants(id) ON DELETE CASCADE ON UPDATE CASCADE
+    2. Add an index on this column for faster searching:
+        CREATE INDEX IF NOT EXISTS idx_<YOUR_TABLE>_tenant_id
+        ON <YOUR_TABLE>(tenant_id);
+    3. Create a view for the object with tenant scope:
+        CREATE OR REPLACE VIEW <YOUR_TABLE>_tenant_view AS
+        SELECT * FROM <YOUR_TABLE>
+        WHERE tenant_id = current_setting('site_session.tenant_id')::VARCHAR(36);
+    4. Add the trigger to set tenant_id to current tenant on insert:
+        CREATE OR REPLACE TRIGGER enforce_tenant_id
+        BEFORE INSERT ON <YOUR_TABLE>
+        FOR EACH ROW
+        EXECUTE FUNCTION set_tenant_id();
+    5. Replace instances of SELECT queries on <YOUR_TABLE> with <YOUR_TABLE>_tenant_view
+       in the PHP model file. This includes wherever those tables are joined.
+
+These instructions are for objects that can exist on mulitple tenants (i.e. Users)
+    1. Make a link table like tenant_users
+    2. Make a view like users_tenant_view
+*/
+
+
+
 COMMIT;
 
-
-
-
-
 BEGIN;
-
--- Create user roles table
-CREATE TABLE IF NOT EXISTS user_roles(
-    role_id INT NOT NULL PRIMARY KEY,
-    role_name VARCHAR(255) NOT NULL
-);
-
--- Create users for CiLogon table
-CREATE TABLE IF NOT EXISTS users(
-    id VARCHAR(255) NOT NULL PRIMARY KEY,
-    email VARCHAR(255),
-    first_name VARCHAR(255),
-    last_name VARCHAR(255),
-    full_name VARCHAR(255),
-    eppn VARCHAR(255),
-    idp VARCHAR(255),
-    idp_name VARCHAR(255),
-    affiliation VARCHAR(255),
-    roles INT[] DEFAULT ARRAY[0]
-);
-
-
--- Create user_sessions table
-CREATE TABLE IF NOT EXISTS user_sessions(
-    session_id VARCHAR(36) NOT NULL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
-    expires TIMESTAMP NOT NULL,
-    token JSONB NOT NULL,
-    CONSTRAINT user_sessions_users_id_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
-COMMIT;
-
-BEGIN;
-
 -- Create plugins table
 CREATE TABLE IF NOT EXISTS plugins(
     id INT NOT NULL PRIMARY KEY,
@@ -153,20 +292,143 @@ CREATE TABLE IF NOT EXISTS plugins(
     active BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- Insert plugins. This should be added to as new plugins are implemented
+-- Insert available plugins
 INSERT INTO plugins (id, name, display_name, description, active) VALUES
-    (0, 'api_keys', 'API Keys', 'Allows users to create API Keys which can be used on specific routes.', FALSE);
+    (0, 'api_keys', 'API Keys', 'Allows users to create API Keys which can be used on specific routes.', FALSE)
+    ON CONFLICT (id) DO NOTHING;
 INSERT INTO plugins (id, name, display_name, description, active) VALUES
-    (1, 'projects', 'Projects', 'Allows users to create projects and share elements.', FALSE);
+    (1, 'projects', 'Projects', 'Allows users to create projects and share elements.', FALSE)
+    ON CONFLICT (id) DO NOTHING;
 INSERT INTO plugins (id, name, display_name, description, active) VALUES
-    (2, 'S3', 'S3 Management', 'Enables connection to S3 buckets on the server.', FALSE);
+    (2, 'S3', 'S3 Management', 'Enables connection to S3 buckets on the server.', FALSE)
+    ON CONFLICT (id) DO NOTHING;
+INSERT INTO plugins (id, name, display_name, description, active) VALUES
+    (3, 'LLM', 'LLM Operations', 'Enables connection to LLM servers through an OpenAI PHP library implementation.', FALSE)
+    ON CONFLICT (id) DO NOTHING;
+INSERT INTO plugins (id, name, display_name, description, active) VALUES
+    (4, 'user_guide', 'User Guide', 'Creates a user guide page from markdown. Add /<ROOT_URL>/user_guide.md for functionality.', FALSE)
+    ON CONFLICT (id) DO NOTHING;
+INSERT INTO plugins (id, name, display_name, description, active) VALUES
+    (5, 'user_agreement', 'User Agreement', 'Requires user to accept an agreement on first site access.', FALSE)
+    ON CONFLICT (id) DO NOTHING;
+INSERT INTO plugins (id, name, display_name, description, active) VALUES
+    (6, 'site_banner', 'Site Banner', 'Displays a banner at the top of the site.', FALSE)
+    ON CONFLICT (id) DO NOTHING;
 
-
--- Insert initial user into the database as an Admin. The only thing you need to change is the <linkblue> part to your
--- linkblue (i.e. 'abc123')
-INSERT INTO users (id, eppn, roles) VALUES
-    ('notloggedin_123456', '<linkblue>@uky.edu', ARRAY[(SELECT role_id FROM user_roles WHERE role_name = 'Admin')]);
 COMMIT;
 
+BEGIN;
+-- Create projects table
+CREATE TABLE IF NOT EXISTS projects(
+    id VARCHAR(36) NOT NULL PRIMARY KEY,
+    owner_id VARCHAR(36),
+    tenant_id VARCHAR(36) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    name TEXT,
+    members JSON,
+    CONSTRAINT projects_owner_fk FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Create collection_codes table
+CREATE TABLE IF NOT EXISTS collection_codes(
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(255) UNIQUE NOT NULL,
+    project_id VARCHAR(36) NOT NULL REFERENCES projects(id) ON DELETE CASCADE
+);
+
+COMMIT;
+
+BEGIN;
+-- Create files table
+CREATE TABLE IF NOT EXISTS files(
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    collection_code_id UUID NOT NULL REFERENCES collection_codes(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    transcription_filename TEXT DEFAULT NULL,
+    izers JSON NOT NULL,
+    date_added TIMESTAMP NOT NULL DEFAULT NOW(),
+    archived JSON NOT NULL,
+    status JSON NOT NULL,
+    file_type VARCHAR(36),
+    associated_project_id VARCHAR(36) REFERENCES projects(id) ON DELETE SET NULL
+);
+
+COMMIT;
+
+BEGIN;
+CREATE TABLE jobs (
+    job_id SERIAL PRIMARY KEY,
+    file_id CHARACTER(36) REFERENCES files(id) ON DELETE CASCADE,
+    job_name TEXT NOT NULL,  -- No space restriction
+    system_prompt TEXT NOT NULL,
+    user_prompt TEXT NOT NULL,
+    output_format TEXT,
+    combine BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+
+
+
+CREATE TABLE job_defaults (
+    job_name TEXT PRIMARY KEY,
+    system_prompt TEXT NOT NULL,
+    user_prompt TEXT NOT NULL,
+    output_format TEXT,
+    combine BOOLEAN DEFAULT FALSE
+);
+
+
+INSERT INTO job_defaults (job_name, system_prompt, user_prompt, output_format, combine)
+VALUES (
+    'riskalyzer',
+    'You are a helpful assistant',
+    'Extract sensitive content from this portion of a transcript. Sensitive content only includes racism, sexual content, defamation, libel, slander, and other types of content related to OTHER people. The person being interviewed is allowed to share personal information, and that content should not be flagged. List the line number, why the content is considered sensitive, and the excerpt of sensitive content. Do not say if part of the conversation appears to be missing, and do not output anything extra. Look at your conversation history and add on to the previous report if you think that the part of the transcript you are looking at is a continuation of that. Only output information in this format:
+time_codes: [10:00:01 - 10:00:08]
+reason: The reason the content is considered sensitive
+excerpt: A long excerpt from the text.
+Say nothing else at all.',
+    '',
+    FALSE
+)
+ON CONFLICT (job_name) DO UPDATE
+SET system_prompt = EXCLUDED.system_prompt,
+    user_prompt = EXCLUDED.user_prompt,
+    output_format = EXCLUDED.output_format,
+    combine = EXCLUDED.combine;
+
+COMMIT;
+
+BEGIN;
+-- Create metrics table
+CREATE TABLE IF NOT EXISTS metrics(
+    task_id VARCHAR(36) PRIMARY KEY,
+    details JSONB,
+    user_id VARCHAR(36),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS llm_conversations (
+    id SERIAL PRIMARY KEY,
+    file_id VARCHAR(255) NOT NULL,
+    convo_name VARCHAR(255) NOT NULL,
+    model VARCHAR(100) NOT NULL,
+    messages JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS site_banner (
+    is_on BOOLEAN NOT NULL DEFAULT FALSE,
+    message TEXT
+);
+
+CREATE TABLE IF NOT EXISTS file_duration (
+    id SERIAL PRIMARY KEY,
+    file_id CHAR(36) NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    duration_seconds DOUBLE PRECISION NOT NULL,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_file_duration_file_id ON file_duration(file_id);
 
 COMMIT;

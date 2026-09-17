@@ -1,8 +1,7 @@
 # SpeakEZ — Setup Guide
 
 Welcome! This guide explains how to set up the SpeakEZ oral-history
-transcription website from scratch, written for someone who is **not** a
-software developer. Every step says exactly what to type, what you should
+transcription website from scratch. Every step says what to type, what you should
 see, and how to tell whether it worked.
 
 If you get stuck, see **Section 12 — When things go wrong**.
@@ -95,9 +94,10 @@ You need:
       recommended), 100 GB free disk, and the NVIDIA drivers installed
       (type `nvidia-smi` — you should see a table with your GPU).
 - [ ] **Docker** installed on both (Section 3).
-- [ ] **A ClearML account**: sign up at <https://app.clearml.ai> (free).
-      Then click your profile picture → **Settings → API Keys → Create new
-      secret key**, and save the **access key** and **secret key** it shows.
+- [ ] **A ClearML server to use**: either the free cloud service, or your
+      own server. This is its own step-by-step process — see the separate
+      **`CLEARML-SETUP.md`** guide that ships with this package. At minimum
+      you will need an **access key** and **secret key** from it.
 - [ ] **A HuggingFace account**: sign up at <https://huggingface.co> (free).
       Create a "read" **access token** (Settings → Access Tokens). Then visit
       each of these three pages and click *"Agree and access repository"*:
@@ -184,7 +184,8 @@ Docker's documentation for "NVIDIA Container Toolkit".)
 2. Copy the ZIP to the web server (e.g. with a USB stick, or `scp` — ask IT
    if unsure) and uncompress it. You should now have a folder containing
    `CAT-Talk/`, `oral-transcription/`, `cat-talk-jobs/`,
-   `example-configs/`, and this guide.
+   `example-configs/`, this guide, and `CLEARML-SETUP.md` (the separate
+   guide for the job-coordination server, from Section 2's checklist).
 3. Put a copy of the folder on the worker machine as well (only the
    `cat-talk-jobs/` folder is strictly needed there, but the whole ZIP is
    simplest).
@@ -212,7 +213,9 @@ container.
    ```yaml
    services:
      minio:
-       image: minio/minio
+       # (MinIO's images moved from Docker Hub to quay.io in 2025 —
+       #  "minio/minio" on Docker Hub no longer exists)
+       image: quay.io/minio/minio
        command: server /data --console-address ":9001"
        ports:
          - "9000:9000"
@@ -225,14 +228,20 @@ container.
        restart: unless-stopped
    ```
 
-3. Start it and create the two storage "buckets" (think: folders):
+3. Start it and create the two storage "buckets" (think: folders).
+   Run this command, replacing the username/password with the ones you
+   picked above:
 
    ```bash
    docker compose up -d
-   docker run --rm --network host minio/mc sh -c \
+   docker run --rm --network host --entrypoint /bin/sh quay.io/minio/mc -c \
      "mc alias set local http://localhost:9000 CHANGE-ME-minio-user CHANGE-ME-minio-password && \
-      mc mb local/speakez-audio && mc mb local/speakez-output"
+      mc mb local/speakez-audio local/speakez-output"
    ```
+
+   It prints `Added 'local' successfully` and two `Bucket created
+   successfully` lines. (If it complains about connecting, wait a few
+   seconds and try again — the storage service may still be starting.)
 
 ✔ **Checkpoint:** open `http://192.168.1.50:9001` in a browser, sign in with
 the MinIO username/password, and you should see two buckets:
@@ -256,7 +265,7 @@ cp ../example-configs/CAT-Talk.config.php frontend/config.php
 cp backend/postgres/init.sql.example backend/postgres/init.sql
 ```
 
-### 6.2 Edit the three files
+### 6.2 Edit the files
 
 **File 1 — `.env`** (the website's basic settings). Open it with
 `nano .env` and change:
@@ -265,6 +274,7 @@ cp backend/postgres/init.sql.example backend/postgres/init.sql
 |---|---|
 | `POSTGRES_PASSWORD` | any long random phrase (you'll type it twice more) |
 | `ADMIN_EPPN` | the first admin's email, e.g. `daboyd2@uky.edu` |
+| `MC_URL`, `MC_USER`, `MC_PASSWORD` | the storage address and the MinIO username/password from Section 5 — the address is `http://192.168.1.50:9000` with **your** server's IP. These are read when the website is **built** (next step), so the storage service must be running first |
 
 **File 2 — `frontend/config.php`** (the website's full configuration).
 Open it with `nano frontend/config.php` and change **every value that
@@ -284,29 +294,39 @@ contains `CHANGE-ME`**:
 You may also want to set `title_text` to your project's name.
 
 **File 3 — `backend/postgres/init.sql`** (the database's starting setup).
-You only need to change the admin email that appears **twice** in it:
-
-```bash
-nano backend/postgres/init.sql
-```
-
-Press **Ctrl+W** (search), type `<linkblue>`, press Enter. Replace
-`<linkblue>@uky.edu` with the admin email (e.g. `daboyd2@uky.edu`). Press
-**Ctrl+W** then Enter to find the second occurrence and replace it too.
-Save and exit.
+**Nothing to change** — when the website is built (next step), the admin
+email from `ADMIN_EPPN` in `.env` is inserted into it automatically.
 
 ### 6.3 Start the website
+
+The storage service from Section 5 must be running before this step —
+the very first start builds the website's PHP container, and that build
+connects to the storage once to save its settings:
 
 ```bash
 docker compose up -d
 ```
 
-The first start builds and initializes for a minute or two. Then install
-the website's extras (a one-time step):
+The first start builds and initializes for a minute or two.
+
+Then install the website's extras with **Composer** (a PHP dependency
+tool) — a one-time step, run inside the running PHP container:
 
 ```bash
-docker exec -it speakez_php sh -c "composer install"
+docker ps
 ```
+
+Find the PHP container in the list (its name ends in `_php`) and note the
+first four characters of its ID — for example `a1b2`. Then open a shell
+inside it and install:
+
+```bash
+docker exec -it a1b2 /bin/sh
+composer install
+exit
+```
+
+(If `composer install` reports an error, try `composer update` instead.)
 
 ✔ **Checkpoint:** open `http://192.168.1.50:8080` in a browser → you should
 see the SpeakEZ login page, and logging in with the admin account puts you
@@ -569,6 +589,8 @@ behind a proper HTTPS address, then update the address in: the website's
 | Transcription job fails with a HuggingFace/401 error | Token missing or model access not granted | Re-do the HuggingFace checklist in Section 2 (token + all three "Agree" clicks); confirm the token is in the worker's `.env` **and** `config.ini` |
 | `docker: permission denied` | Your user isn't in the docker group | Run `sudo usermod -aG docker $USER`, log out, log back in |
 | GPU not visible to the worker | Toolkit/drivers | `nvidia-smi` must work on the machine itself; then re-run the Section 3 GPU lines and start with **both** `-f` flags |
+| The website build fails at `mc alias set` | The storage service isn't running (or the address/username/password in `.env` don't match it) | Start Section 5's storage first; check `MC_URL` uses the **server's IP**, not `localhost`; then `docker compose up -d --build` again |
+| `pull access denied for minio/...` or "repository does not exist" | Old instructions using Docker Hub for MinIO | MinIO's images moved to quay.io in 2025 — use `quay.io/minio/minio` and `quay.io/minio/mc` as in Section 5 |
 
 **Still stuck?** The original deployment was maintained by Vaiden Logan
 (<vaiden.logan@uky.edu>).

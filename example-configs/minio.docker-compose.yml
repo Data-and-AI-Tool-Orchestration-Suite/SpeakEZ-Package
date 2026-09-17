@@ -7,7 +7,9 @@
 # ============================================================
 services:
   minio:
-    image: minio/minio
+    # (MinIO's images moved from Docker Hub to quay.io in 2025 —
+    #  "minio/minio" on Docker Hub no longer exists)
+    image: quay.io/minio/minio
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"

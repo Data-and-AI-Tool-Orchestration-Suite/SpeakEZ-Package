@@ -33,14 +33,9 @@ while True:
             continue
 
         try:
-            #print(response.text)
-            ()
-        except:
-            ()
-        data = response.json()
-    for i in data:
-        ()
-        #print(i)
+            data = response.json()
+        except Exception:
+            data = []
     if len(data) == 0:
         print('No jobs in queue')
         time.sleep(SLEEP_TIME)

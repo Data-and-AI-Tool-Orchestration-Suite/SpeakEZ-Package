@@ -28,7 +28,8 @@ RUN pecl install xdebug \
 RUN apk add --no-cache ffmpeg
 
 # Install Minio Client
-RUN curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/bin/mc
+# (dl.min.io no longer serves mc releases; pinned GitHub release instead)
+RUN curl -fsSL https://github.com/minio/mc/releases/download/RELEASE.2025-08-13T08-35-41Z/mc.linux-amd64.RELEASE.2025-08-13T08-35-41Z -o /usr/bin/mc
 RUN chmod +x /usr/bin/mc
  
 # Set MinIO Client alias

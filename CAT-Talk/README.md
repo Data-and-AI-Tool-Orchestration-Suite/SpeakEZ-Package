@@ -8,7 +8,7 @@ integration, we use the LAPP stack which is an easy-to-learn, fast web dev exper
 
 ### Requirements
 1. Docker (and docker-compose)
-2. SQL Server Management Studio (SSMS)
+2. A PostgreSQL client such as pgAdmin (optional, for administering the database)
 3. PHP Composer (if making many websites based off this template, it is easier to install PHP composer on your host machine rather than installing it in the PHP container each time)
 
 ### Installation and Running
@@ -30,10 +30,6 @@ integration, we use the LAPP stack which is an easy-to-learn, fast web dev exper
 
 ***NOTE***:
 A database initialization file is provided in ```backend/postgres/init.sql```, feel free to change this to suit your needs. This script will run automatically on docker compose, and may take up to 30 seconds to complete once the container is running.
-
-##### Part 2:
-1. A database initialization file is provided in website-backed/sqlserver/init.sql, feel free to change this to suit your needs.
-2. This script will run automatically on docker-compose, and may take about 30 seconds to complete.
 
 ### License
 We've chosen to use the GNU GPLv3 license for this software, but really we don't care what you do with it. Just give us some credit when you make it big.

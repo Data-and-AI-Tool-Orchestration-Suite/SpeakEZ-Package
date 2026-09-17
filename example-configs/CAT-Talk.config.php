@@ -10,7 +10,7 @@
         // --- Database connection ---------------------------------
         // These must match the values in your .env file.
         // Leave 'host' as 'postgres' — that is the internal name.
-        'postgres' => [
+        'db' => [
             'host'              => 'postgres',
             'name'              => 'speakez',
             'user'              => 'speakez',

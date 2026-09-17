@@ -19,7 +19,6 @@ torch
 whisper
 soundfile
 h5py
-botocore
 whisperx
 nvidia-cublas-cu11
 nvidia-cudnn-cu11
