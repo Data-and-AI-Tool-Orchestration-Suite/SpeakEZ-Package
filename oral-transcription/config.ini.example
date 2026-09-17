@@ -1,0 +1,50 @@
+[API Server]
+; IP/interface the Flask API binds to ("_" or 0.0.0.0 = all interfaces)
+api_ip = _
+; IP of the docker host as seen from inside containers (used by celery workers to reach the API)
+docker_ip = _
+; Port the CAT-Talk website runs on (used when building callback links)
+website_port = _
+; Port this API listens on inside its container (see docker-compose.yml: 5050)
+api_port = _
+; MD5 hex digest of the apiKey that CAT-Talk sends in request headers.
+; Generate with: python3 -c "import hashlib; print(hashlib.md5(b'YOUR-KEY').hexdigest())"
+api_key_hash = _
+; Whether the API is served over SSL (true/false)
+http_ssl = _
+; Base URL of the CAT-Talk website — status updates are POSTed to <callback_url>/updates/...
+callback_url = _
+; Plaintext API key used for callbacks to CAT-Talk (must match api_key in CAT-Talk's config.php)
+api_key = _
+
+[S3 Server]
+; S3/MinIO endpoint URL (e.g. http://minio:9000)
+s3_url = _
+; Same URL without any path or scheme suffix
+s3_url_no_path = _
+; Short alias for the `mc` (MinIO client) command line
+s3_alias = _
+s3_user = _
+s3_password = _
+; Bucket holding uploaded audio files
+s3_audio_bucket = _
+; Bucket where transcription outputs are written
+s3_output_bucket = _
+
+[Local]
+; Local staging directory for audio files inside the container (/workspace/... paths)
+audio_files = _
+output_dir = _
+
+[LLM]
+; OpenAI-compatible endpoint used by describalyze.py and merge.py
+openai_api_key = _
+openai_api_base = _
+
+[ClearML]
+; Name of the ClearML template task to clone for new jobs
+template_task_name = _
+; ClearML project that holds the template tasks
+project_name = _
+; ClearML queue new tasks are enqueued to (workers listen on this queue)
+queue_name = _

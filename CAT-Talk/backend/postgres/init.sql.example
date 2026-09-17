@@ -1,0 +1,172 @@
+BEGIN;
+
+-- Create user roles table
+CREATE TABLE IF NOT EXISTS user_roles(
+    role_id INT NOT NULL PRIMARY KEY,
+    role_name VARCHAR(255) NOT NULL
+);
+
+-- Create users for CiLogon table
+CREATE TABLE IF NOT EXISTS users(
+    id VARCHAR(255) NOT NULL PRIMARY KEY,
+    email VARCHAR(255),
+    first_name VARCHAR(255),
+    last_name VARCHAR(255),
+    full_name VARCHAR(255),
+    eppn VARCHAR(255),
+    idp VARCHAR(255),
+    idp_name VARCHAR(255),
+    affiliation VARCHAR(255),
+    roles INT[] DEFAULT ARRAY[0]
+);
+
+
+-- Create user_sessions table
+CREATE TABLE IF NOT EXISTS user_sessions(
+    session_id VARCHAR(36) NOT NULL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    expires TIMESTAMP NOT NULL,
+    token JSONB NOT NULL,
+    CONSTRAINT user_sessions_users_id_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS files(
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    collection_code VARCHAR(255) NOT NULL,
+    filename TEXT NOT NULL,
+    transcription_filename TEXT DEFAULT NULL,
+    izers JSON NOT NULL,
+    date_added TIMESTAMP NOT NULL DEFAULT NOW(),
+    archived JSON NOT NULL,
+    status JSON NOT NULL,
+    associated_project_id UUID
+);
+
+
+COMMIT;
+
+BEGIN;
+
+INSERT INTO user_roles (role_id, role_name) VALUES
+    (0, 'Default'),
+    (1, 'Admin'),
+    (2, 'User'),
+    (3, 'SpeakEZ_User')
+ON CONFLICT (role_id) DO NOTHING;
+-- Add more roles here if necessary
+
+
+-- Constraint for ensuring roles are valid
+CREATE OR REPLACE FUNCTION check_roles_validity() 
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Check that every value in the roles array exists in user_roles
+    IF EXISTS (
+        SELECT 1 FROM unnest(NEW.roles) AS role_id 
+        WHERE role_id NOT IN (SELECT role_id FROM user_roles)
+    ) THEN
+        RAISE EXCEPTION 'Invalid role_id in roles array';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER validate_roles
+BEFORE INSERT OR UPDATE ON users
+FOR EACH ROW EXECUTE FUNCTION check_roles_validity();
+
+
+-- Create a trigger function to add collection_codes to projects when files are uploaded
+CREATE OR REPLACE FUNCTION update_collection_codes()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Check if the collection_code is not null
+    IF NEW.collection_code IS NOT NULL THEN
+        -- Update the collection_codes array in the associated project
+        UPDATE projects
+        SET collection_codes = array_append(collection_codes, NEW.collection_code)
+        WHERE id = NEW.associated_project_id
+          AND NOT (NEW.collection_code = ANY(collection_codes)); -- Avoid duplicates
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER add_collection_code
+AFTER INSERT ON files
+FOR EACH ROW
+EXECUTE FUNCTION update_collection_codes();
+
+
+-- Insert initial user into the database as an Admin. The only thing you need to change is the <linkblue> part to your
+-- linkblue (i.e. 'abc123')
+INSERT INTO users (id, eppn, roles) VALUES
+    ('notloggedin_123456', '<linkblue>@uky.edu', ARRAY[(SELECT role_id FROM user_roles WHERE role_name = 'Admin')]);
+COMMIT;
+
+
+
+
+
+BEGIN;
+
+-- Create user roles table
+CREATE TABLE IF NOT EXISTS user_roles(
+    role_id INT NOT NULL PRIMARY KEY,
+    role_name VARCHAR(255) NOT NULL
+);
+
+-- Create users for CiLogon table
+CREATE TABLE IF NOT EXISTS users(
+    id VARCHAR(255) NOT NULL PRIMARY KEY,
+    email VARCHAR(255),
+    first_name VARCHAR(255),
+    last_name VARCHAR(255),
+    full_name VARCHAR(255),
+    eppn VARCHAR(255),
+    idp VARCHAR(255),
+    idp_name VARCHAR(255),
+    affiliation VARCHAR(255),
+    roles INT[] DEFAULT ARRAY[0]
+);
+
+
+-- Create user_sessions table
+CREATE TABLE IF NOT EXISTS user_sessions(
+    session_id VARCHAR(36) NOT NULL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    expires TIMESTAMP NOT NULL,
+    token JSONB NOT NULL,
+    CONSTRAINT user_sessions_users_id_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+COMMIT;
+
+BEGIN;
+
+-- Create plugins table
+CREATE TABLE IF NOT EXISTS plugins(
+    id INT NOT NULL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    display_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    active BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+-- Insert plugins. This should be added to as new plugins are implemented
+INSERT INTO plugins (id, name, display_name, description, active) VALUES
+    (0, 'api_keys', 'API Keys', 'Allows users to create API Keys which can be used on specific routes.', FALSE);
+INSERT INTO plugins (id, name, display_name, description, active) VALUES
+    (1, 'projects', 'Projects', 'Allows users to create projects and share elements.', FALSE);
+INSERT INTO plugins (id, name, display_name, description, active) VALUES
+    (2, 'S3', 'S3 Management', 'Enables connection to S3 buckets on the server.', FALSE);
+
+
+-- Insert initial user into the database as an Admin. The only thing you need to change is the <linkblue> part to your
+-- linkblue (i.e. 'abc123')
+INSERT INTO users (id, eppn, roles) VALUES
+    ('notloggedin_123456', '<linkblue>@uky.edu', ARRAY[(SELECT role_id FROM user_roles WHERE role_name = 'Admin')]);
+COMMIT;
+
+
+COMMIT;

@@ -1,0 +1,8 @@
+vendor/
+files/
+composer.phar
+config.php
+data/
+.idea/
+uploads/
+composer.lock

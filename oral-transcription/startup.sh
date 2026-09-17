@@ -1,0 +1,1 @@
+cp clearml.conf ~/clearml.conf && gunicorn --reload -w 4 -b 0.0.0.0:5050 api:app

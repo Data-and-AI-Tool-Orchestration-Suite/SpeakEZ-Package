@@ -1,0 +1,42 @@
+[API Server]
+; Plaintext key sent as the `apiKey` header when polling the job queue.
+; Must be the pre-image of the api_key_hash configured in the oral-transcription API's config.ini
+; (i.e. the same plaintext key stored as `apiKey` in CAT-Talk's frontend/config.php).
+api_key =
+; Key sent as `Authorization: Bearer <key>` when posting status updates back to CAT-Talk.
+; Must match `api_key` in CAT-Talk's frontend/config.php.
+updates_api_key =
+; Base URL of the CAT-Talk website (used for /updates/... callbacks)
+callback_url =
+; Base URL of the CAT-Talk website (used for /updates and /metrics/update posts)
+callback_url_2 =
+
+[S3 Server]
+; S3/MinIO endpoint, port and buckets for fetching audio and writing outputs
+s3_address =
+s3_port =
+s3_top_level_bucket =
+s3_audio_bucket =
+s3_output_bucket =
+
+[LLM]
+; OpenAI-compatible endpoint (e.g. an LLM Factory server) used by the job wrappers
+openai_api_key =
+openai_api_base =
+
+; The LLM model name the wrappers pass to the API. Read by the custom, ohmsifier,
+; and synchronizer job wrappers (DEFAULT_LARGE_CONTEXT_MODEL / DEFAULT_TOOL_CAPABLE_MODEL).
+[Model]
+large_model = google/gemma-4-31B-it
+
+; The job types this machine will pull from the queue and run.
+; GPU machines: verbatimizer, synchronifier (set USE_GPU=1 in .env)
+; CPU machines: custom, riskalyzer, describalizer, ohmsifier (set USE_GPU=0 in .env)
+[Jobs]
+job_types = custom, riskalyzer, describalizer, ohmsifier, verbatimizer, synchronifier
+max_workers = 4
+
+; HuggingFace token for the gated pyannote diarization models
+; (needs read access to pyannote/speaker-diarization-3.1)
+[HuggingFace]
+auth_token =

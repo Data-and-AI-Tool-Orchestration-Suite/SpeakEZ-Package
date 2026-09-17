@@ -1,0 +1,112 @@
+<?php
+    return [
+        /**
+         * This specifies the DB connection arguments
+         * @param string    $host URL for the DB (or if docker it is 'postgres')
+         * @param string    $name Name of the database
+         * @param string    $user Username for the DB
+         * @param string    $pass Password for the DB
+         * @param int       $port Port for the DB
+         */
+        'postgres' => [
+            'host'              => 'postgres', // Hostname of Postgres DB. 'postgres' refers to the Docker service name set in docker-compose.yml that this container can reach
+            'name'              => '',         // Name of Postgres DB. Set in .env
+            'user'              => '',         // Username for Postgres DB. Set in .env
+            'pass'              => '',         // Password for Postgres DB. Set in .env
+            'port'              => 5432        // Postgres port internal to docker container, change in docker-compose.yml
+        ],
+        /**
+         * Authenticate users with CiLogon (https://cilogon.org/oauth2/register)
+         * @param string        $clientId generated from CiLogon
+         * @param string        $clientSecret generated from CiLogon
+         * @param string        $redirectUri This is the URL with the route /callback (i.e. http://localhost:8080/callback)
+         * @param array<string> $scopes Which scopes to capture from CiLogon (don't need to change)
+         * @param array<string> $idphint Which domains to provide as options for login
+         * @param string        $initialidp The default IDP CiLogon displays 
+         */
+        'oauth2' => [
+            'clientId'                  => '',
+            'clientSecret'              => '',
+            'redirectUri'               => '',
+            'scopes'                    => ['openid', 'email', 'profile', 'org.cilogon.userinfo'],
+            'idphint'                   => ['https://ukidp.uky.edu/idp/shibboleth', 'https://google.com/accounts/o8/id', 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize', 'https://github.com/login/oauth/authorize', 'https://orcid.org/oauth/authorize'],
+            'initialidp'                => 'https://ukidp.uky.edu/idp/shibboleth',
+        ],
+        /**
+         * Sets the timout for a session on the site
+         * @param int $timeout number of seconds until a session expires
+         */
+        'sessions' => [
+            'max-age'   => 21600, //6 hours
+        ],
+        /**
+         * Tenant configuration
+         * Styling defaults are used for the default fields on creation of a tenant. Can be changed after 
+         * creation. Will generally be the same across all derivatives of this template with exception to
+         * title_text. If you add to the defaults, change the appropriate functions in Tenant.php and make
+         * sure the keys in the tenant_styles table styles column match the keys in this array.
+         */
+        "tenants" => [
+            "styling" => [
+                "defaults" => [
+                    "title_text" => "Template Site",
+                    "title_text_color" => "#FFFFFF",
+                    "navbar_color" => "#1a48aa",
+                    "navbar_menu_color" => "#FFFFFF",
+                    "menu_active_dropdown_text_color" => "#FFFFFF",
+                    "menu_active_dropdown_bg_color" => "#0d6efd",
+                    "button_primary" => "#0d6efd",
+                    "button_secondary" => "#6c757d",
+                    "button_success" => "#198754",
+                    "button_danger" => "#dc3545",
+                    "button_warning" => "#ffc107",
+                    "button_info" => "#0dcaf0",
+                    "button_light" => "#f8f9fa",
+                    "button_dark" => "#343a40",
+                ],
+            ],
+        ],
+        /**
+         * Sets the logging and display or=f errors on the site (dev -> errors shown, prod -> errors hidden)
+         * This should be set to production when moving to a production environment
+         */
+        'environment' => "development", // or "production"
+        /**
+         * Job-processing backend (the oral-transcription API server)
+         * @param string $backend_server Base URL of the oral-transcription API (e.g. http://<api-host>:5050).
+         *                               Undefined /api/* routes are proxied here, and job-start requests
+         *                               are POSTed to <backend_server>/api/job/<job_type>.
+         * @param string $apiKey Plaintext key sent to the transcription API as the `apiKey` header.
+         *                       The API stores only its MD5 hash (api_key_hash in its config.ini).
+         * @param string $api_key Bearer key that job workers must present when POSTing status
+         *                        updates to /updates/... (checked in ProcessController::updateJob()).
+         *                        Give this same value to oral-transcription (api_key in its config.ini)
+         *                        and to cat-talk-jobs (updates_api_key in its config.ini).
+         */
+        'backend_server' => '',
+        'apiKey'         => '',
+        'api_key'        => '',
+        /**
+         * Injects a "parent" URL part in front of all routes (i.e. http://localhost:8080/<rootURL>/whatever)
+         * @param string $rootURL This can be whatever you want (or left blank), normally it is not needed until placing
+         *                          on a production VM (e.g. '/test'). If you do include this, it MUST start with a '/'!
+         */
+	    'rootURL' => '',
+        /**
+         * Sets the parameters for S3 connections. Only necessary if using the S3 plugin
+         * Create a new entry for each S3 server you want to connect to
+         * @param string $endpoint: The endpoint of the S3 server (i.e. http://localhost:9000)
+         * @param string $access_key: The access key for connecting to the S3 server
+         * @param string $secret_key: The secret key for connecting to the S3 server
+         * @param string $region: The region for the AWS S3 server. If using a local server, this field does not matter
+         * @param bool   $use_ssl: Whether to use SSL to connect to the server. Set to true when a cert is set up on the server
+         */
+        's3' => [
+            'top_level_bucket' => '',
+            'bucket'    => '',
+            'output_bucket' => '',
+            'endpoint'  => '',
+            'id'        => '',
+            'secret'    => ''
+        ]
+];

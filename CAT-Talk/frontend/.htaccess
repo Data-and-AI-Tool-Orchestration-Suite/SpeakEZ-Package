@@ -1,0 +1,16 @@
+RewriteEngine on
+
+# Preserve Authorization headers for PHP
+CGIPassAuth on
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+RewriteCond %{HTTP:Authorization} ^(.*)
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+
+# Allow direct access to CSS, JS, images, and other static assets
+RewriteCond %{REQUEST_URI} !\.(css|js|png|jpg|jpeg|gif|svg|webp|woff|woff2|ttf|eot|ico|md|webmanifest)$ [NC]
+
+# Route everything else through index.php
+RewriteRule ^ index.php [QSA,L]
+
+# Serve Markdown as Text instead of XML (which is default for some reason)
+AddType text/markdown .md

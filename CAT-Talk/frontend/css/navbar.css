@@ -1,0 +1,170 @@
+/*
+ * Navbar
+ */
+
+.navbar {
+    height: 60px;
+    background-color: var(--navbar-bg-color);
+    position: fixed;
+    width: 100%;
+}
+
+nav:not(.dt-paging nav) {
+    background-color: var(--navbar-bg-color);
+}
+
+
+
+.navbar-nav {
+    align-items: center;
+}
+
+.navbar-toggler:focus {
+    box-shadow: 0 0 0 2px;
+}
+
+.navbar-toggler i {
+    color: #FFF;
+}
+
+.navbar-short {
+    height: 100%;
+}
+
+.navbar-brand {
+    color: var(--navbar-brand-text-color);
+    font-size: 1.15rem;
+    text-align: center;
+    text-shadow: 1px 1px #07132c;
+}
+
+.navbar-brand::before {
+    content: '';
+    background-color: rgba(26, 72, 170, 0.75);
+    mix-blend-mode: lighten;
+    z-index: 1;
+    pointer-events: none; /* Allow interactions to pass through */
+}
+
+.navbar-brand img {
+    margin-left: .25rem;
+    padding-top: .2rem;
+    padding-bottom: .2rem;
+    padding-left: .5rem;
+    padding-right: .75rem;
+    min-width: 200px;
+    z-index: 1;
+}
+
+.brand-text {
+    margin-top: auto;
+    margin-bottom: auto;
+    padding-left: 10px;
+    z-index: 2;
+    white-space: nowrap;
+    font-size: 1.3rem;
+    font-weight: 700;
+    text-align: center;
+    /* text-shadow: 1px 1px #07132c; */
+    line-height: 1.2em;
+}
+
+.navbar-brand:hover, 
+.navbar-brand:focus {
+    color: var(--navbar-brand-text-color);
+}
+
+.navbar .dropdown .dropdown-item {
+    width:100%;
+    color: #000 !important;
+}
+
+#myAcctDropdown {
+    font-size: 1.5rem;
+}
+
+.acct-menu {
+    min-width: 200px;
+}
+
+
+.nav-item a {
+    color: var(--navbar-menu-text-color) !important;
+    font-size: 1rem;
+    position: relative;
+    text-decoration: none !important;
+}
+
+.nav-link::after,
+.nav-link.dropdown-toggle::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0; /* Place the underline below the text */
+    width: 0;
+    height: 4px; /* Thickness of the underline */
+    background-color: var(--dropdown-active-color); 
+    transition: width 0.3s ease; /* Smoothly expand the underline */
+}
+
+
+.nav-link:hover {
+    text-decoration: none;
+}
+
+
+.nav-link.active::after,
+.nav-link:hover::after {
+    width: 100%; /* Expand underline to the full width of the text */
+}
+
+.nav-link.dropdown-item::after,
+.nav-link.dropdown-item.active::after{
+    background-color: var(--dropdown-active-color) !important;
+}
+
+.nav-link.active,
+.nav-link.dropdown-item.active {
+    color: var(--dropdown-active-color) !important;
+}
+
+
+/* .dropdown-menu .dropdown-item {
+    text-align: center;
+
+} */
+
+.dropdown-menu .dropdown-item.active {
+    color: var(--dropdown-active-color) !important;
+}
+
+.dropdown-menu .dropdown-item:hover {
+    background-color:rgb(204, 204, 204) !important;
+    text-decoration: none !important;
+}
+
+.dropdown-menu .dropdown-item.active:hover {
+    background-color: var(--dropdown-active-bg-color) !important;
+    text-decoration: none !important;
+}
+
+.dropdown-menu .dropdown-toggle.active::after {
+    width: 100%; /* Keep underline active */
+}
+
+.btn.dropdown-item-button {
+    margin-left: auto;
+    padding-left: 5px;
+    color: inherit !important;
+}
+
+.btn.dropdown-item-button.active {
+    background-color: var(--dropdown-active-color) !important;
+}
+
+@media screen and (min-width: 768px) {
+    .nav-item {
+        margin-left: 10px;
+    }
+}
+

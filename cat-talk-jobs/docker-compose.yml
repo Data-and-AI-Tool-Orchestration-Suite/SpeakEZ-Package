@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: python3 check_queue.py
+    tty: true
+    environment:
+      - USE_GPU=${USE_GPU}
+      - HF_TOKEN=${HF_TOKEN}
+      - CLEARML_CONFIG_FILE=/workspace/clearml.conf
+    restart: always

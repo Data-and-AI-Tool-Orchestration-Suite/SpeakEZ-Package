@@ -1,0 +1,37 @@
+{
+  "name": "vendor_name/orders",
+  "description": "description",
+  "minimum-stability": "stable",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "cdhick2",
+      "email": "email@example.com"
+    },
+    {
+      "name": "sear234",
+      "email": "sear234@uky.edu"
+    },
+    {
+      "name": "Mitchell Klusty",
+      "email": "mitchell.klusty@uky.edu"
+    }
+  ],
+  "require": {
+    "altorouter/altorouter": "2.0.2",
+    "ext-pdo": "*",
+    "ext-json": "*",
+    "firebase/php-jwt": "*",
+    "cilogon/oauth2-cilogon": "*",
+    "league/oauth2-client": "2.7.0",
+    "guzzlehttp/guzzle": "*",
+    "aws/aws-sdk-php": "^3.317.2",
+    "pestphp/pest": "*",
+    "mockery/mockery": "*"
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  }
+}

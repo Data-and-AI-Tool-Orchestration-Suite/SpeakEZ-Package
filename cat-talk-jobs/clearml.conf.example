@@ -1,0 +1,36 @@
+api {
+    web_server: 
+    api_server: 
+    credentials {
+        "access_key" = ""
+        "secret_key"  = ""
+    }
+}
+sdk {
+    aws {
+        boto3 {
+            multipart_threshold: 9999999999
+        },
+        s3 {
+            credentials: [
+                {
+                  host: "" # url has no http:// or s3://, only the domain
+                  bucket: "" # Does it have importance?
+                  key: 
+                  secret: 
+                  multipart: false
+                  secure: true
+                },
+                {
+                  host: "" # url has no http:// or s3://, only the domain
+                  bucket: "" # Does it have importance?
+                  key: 
+                  secret: 
+                  multipart: false
+                  secure: true
+                }
+            ]
+        }
+    }
+    development.default_output_uri: "" # This one works for task artifacts!
+}

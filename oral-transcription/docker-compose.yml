@@ -1,0 +1,49 @@
+version: '3'
+services:
+  web:
+    container_name: api-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - api-server
+    ports:
+      - "5050:5050"
+    restart: always
+    volumes:
+      - .:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: /bin/bash /workspace/startup.sh  # Use your Flask app module name here
+    depends_on:
+      - redis
+    logging:
+      driver: "json-file" # or "local"
+      options:
+        max-size: "10m"
+        max-file: "5"
+  redis:
+    container_name: api-server-redis
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+    restart: always
+
+  worker:
+    container_name: api-server-worker
+    build: .
+    command: sh -c "cp /workspace/clearml.conf /root/clearml.conf && celery -A long_tasks.celery_app worker -P prefork --loglevel=info"
+    restart: always
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+    volumes:
+      - .:/workspace
+    depends_on:
+      - redis
+    logging:
+      driver: "json-file" # or "local"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  api-server:

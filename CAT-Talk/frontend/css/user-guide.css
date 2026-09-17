@@ -1,0 +1,258 @@
+:root {
+    --primary-color: #333;
+    --accent-color: #0056b3;
+    --highlight-color: #007bff;
+    --bg-color: #fff;
+    --text-color: #333;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--text-color);
+    background-color: var(--bg-color);
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    overflow-y: none;
+}
+
+.main-container {
+    display: flex;
+    flex: 1 1 auto;  /* take up remaining space */
+    /* height: 100%; */
+    position: relative;
+}
+
+.toc-sidebar {
+    border-right: 1px solid #e9ecef;
+    background-color: var(--bg-color);
+    width: 300px;
+    position: sticky;
+    top: 0;
+    height: fit-content;
+    align-self: flex-start;
+}
+
+.toc-sidebar h2 {
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.toc {
+    max-height: calc(100vh - 200px);
+    /* height: 100%; */
+    overflow-y: auto;
+    overflow-x: wrap;
+    list-style-type: none;
+    padding-left: 0px;
+    margin-right: 3px;
+}
+
+.toc a {
+    color: var(--primary-color);
+    text-decoration: none;
+    display: block;
+    height: 100%;
+    padding: 3px 2px;
+    margin: 2px 0;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.toc a:hover {
+    background-color: #f8f9fa;
+}
+
+.toc a.active {
+    background-color: #f0f7ff;
+    border-left: 3px solid var(--highlight-color);
+    color: var(--highlight-color);
+    font-weight: bold;
+}
+
+.toc ul {
+    padding-left: 1rem;
+}
+
+.toc li ul {
+    list-style-type: none;
+}
+
+.content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: visible;
+    margin: 5px;
+    height: 100%;
+}
+
+.content h1 {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    color: var(--primary-color);
+}
+
+.content h2 {
+    font-size: 2em;
+    margin-top: 40px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e9ecef;
+    color: var(--primary-color);
+}
+
+.content h3 {
+    font-size: 1.5em;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    color: var(--primary-color);
+}
+
+.content p {
+    font-size: 1.1em;
+    margin-bottom: 20px;
+}
+
+.content ul, .content ol {
+    margin-bottom: 20px;
+    padding-left: 30px;
+}
+
+.content a {
+    color: var(--accent-color);
+    text-decoration: none;
+}
+
+.content a:hover {
+    text-decoration: underline;
+    color: var(--highlight-color);
+}
+
+.content code {
+    background-color: #f8f9fa;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.content pre {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+.content pre code {
+    background-color: transparent;
+    padding: 0;
+}
+
+.content blockquote {
+    border-left: 4px solid var(--accent-color);
+    padding-left: 15px;
+    margin-left: 0;
+    margin-bottom: 20px;
+    color: #555;
+}
+
+.content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.content table, .content th, .content td {
+    border: 1px solid #e9ecef;
+}
+
+.content th, .content td {
+    padding: 12px;
+    text-align: left;
+}
+
+.content th {
+    background-color: #f8f9fa;
+}
+
+.content tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.content img {
+    max-width: 50%;
+    margin-left: 20px;
+}
+
+.back-to-top {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: var(--highlight-color);
+    color: white;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    text-align: center;
+    line-height: 50px;
+    font-size: 20px;
+    cursor: pointer;
+    display: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+.back-to-top:hover {
+    background-color: var(--accent-color);
+}
+
+@media screen and (max-width: 900px) {
+    .toc-sidebar {
+        width: 220px;
+    }
+    .content {
+        padding: 20px;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .main-container {
+        flex-direction: column;
+    }
+    .toc-sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        border-right: none;
+        border-bottom: 1px solid #e9ecef;
+        max-height: 300px;
+    }
+
+    .toc {
+        max-height: 200px;
+        height: auto;
+        overflow-y: auto;
+        list-style-type: none;
+        padding-left: 0px;
+    }
+
+    .content {
+        width: 100%;
+        padding: 15px;
+    }
+    
+}
+
+.mark {
+    background-color: #ffffcc;
+    padding: 2px;
+}
+
+/* Hide the original table of contents section */
+.hide-toc {
+    display: none;
+}

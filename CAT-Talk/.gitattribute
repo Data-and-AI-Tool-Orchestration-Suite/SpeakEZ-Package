@@ -1,0 +1,13 @@
+# Use LF for all text files by default
+* text=auto eol=lf
+
+# Explicitly enforce LF where needed
+*.sh text eol=lf
+*.env text eol=lf
+*.py text eol=lf
+*.php text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.json text eol=lf
