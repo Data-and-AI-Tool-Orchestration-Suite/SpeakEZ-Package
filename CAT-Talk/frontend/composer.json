@@ -23,7 +23,7 @@
     "ext-json": "*",
     "firebase/php-jwt": "*",
     "cilogon/oauth2-cilogon": "*",
-    "league/oauth2-client": "2.7.0",
+    "league/oauth2-client": "2.9.1",
     "guzzlehttp/guzzle": "*",
     "aws/aws-sdk-php": "^3.317.2",
     "pestphp/pest": "*",

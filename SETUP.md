@@ -581,6 +581,7 @@ behind a proper HTTPS address, then update the address in: the website's
 |---|---|---|
 | Website shows an error page immediately | `.env` or `config.php` has a typo, or the database isn't up | `docker compose logs php` and `docker compose logs postgres` — look for the word "error"; check passwords match between the two files |
 | Login fails or bounces back with an error | CiLogon settings wrong | The `redirectUri` in `config.php` must exactly match your site address + `/callback`, and must be registered in CiLogon |
+| Login shows a wall of `Deprecated: ... AbstractProvider` / "headers already sent" text | An old copy of the vendor libraries (installed before this fix) | Delete the `frontend/vendor` folder, then re-run the `composer install`/`composer update` step (Section 6.3). This package ships the corrected library version (`league/oauth2-client` 2.9.1) and a PHP setting (`prod.ini`) that keeps notices out of page output |
 | "Unauthorized" when testing the coordinator (Section 7.3) | Key A mismatch | Compare `apiKey` (website), `api_key` (workers) and the `api_key_hash` fingerprint (coordinator) |
 | Upload works but starting a job does nothing | The website can't reach the coordinator | Check `backend_server` in the website's `config.php` uses the **server IP** (not `localhost`) and that `http://IP:5050/get-queued-jobs` responds from the server |
 | Job starts but status never changes | Key B mismatch, or wrong `callback_url` | Check Key B in all three places (Section 11) and that `callback_url`(s) point at the website's public address |

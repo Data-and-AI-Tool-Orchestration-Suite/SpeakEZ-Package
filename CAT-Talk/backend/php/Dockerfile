@@ -41,4 +41,5 @@ USER root
 COPY --from=composer/composer:latest-bin /composer /usr/bin/composer
 
 COPY uploads.ini /usr/local/etc/php/conf.d/
+COPY prod.ini /usr/local/etc/php/conf.d/
 COPY www.conf /usr/local/etc/php-fpm.d/www.conf
